@@ -1,0 +1,78 @@
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: eventpass
+      POSTGRES_PASSWORD: eventpass
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./init-db.sh:/docker-entrypoint-initdb.d/init-db.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U eventpass"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  ms-auth:
+    build: ./ms-auth
+    ports:
+      - "8081:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/db_auth
+      SPRING_DATASOURCE_USERNAME: eventpass
+      SPRING_DATASOURCE_PASSWORD: eventpass
+      SPRING_DOCKER_COMPOSE_ENABLED: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  ms-eventos:
+    build: ./ms-eventos
+    ports:
+      - "8082:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/db_eventos
+      SPRING_DATASOURCE_USERNAME: eventpass
+      SPRING_DATASOURCE_PASSWORD: eventpass
+      SPRING_DOCKER_COMPOSE_ENABLED: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  ms-ordenes:
+    build: ./ms-ordenes
+    ports:
+      - "8083:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/db_ordenes
+      SPRING_DATASOURCE_USERNAME: eventpass
+      SPRING_DATASOURCE_PASSWORD: eventpass
+      SPRING_DOCKER_COMPOSE_ENABLED: "false"
+      TICKETS_URL: http://ms-tickets:8080
+      EVENTOS_URL: http://ms-eventos:8080
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  ms-tickets:
+    build: ./ms-tickets
+    ports:
+      - "8084:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/db_tickets
+      SPRING_DATASOURCE_USERNAME: eventpass
+      SPRING_DATASOURCE_PASSWORD: eventpass
+      SPRING_DOCKER_COMPOSE_ENABLED: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    build: ./demo-frontend
+    ports:
+      - "5173:80"
+
+volumes:
+  pgdata:
